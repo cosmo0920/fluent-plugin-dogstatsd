@@ -1,3 +1,4 @@
+require 'statsd' # dogstatsd-ruby
 require 'fluent/plugin/output'
 
 module Fluent::Plugin
@@ -31,8 +32,6 @@ module Fluent::Plugin
 
     def initialize
       super
-
-      require 'statsd' # dogstatsd-ruby
     end
 
     def configure(conf)
