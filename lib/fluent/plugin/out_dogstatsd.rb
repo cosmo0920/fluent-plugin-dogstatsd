@@ -1,6 +1,12 @@
-module Fluent
-  class DogstatsdOutput < BufferedOutput
-    Plugin.register_output('dogstatsd', self)
+require 'fluent/plugin/output'
+
+module Fluent::Plugin
+  class DogstatsdOutput < Output
+    Fluent::Plugin.register_output('dogstatsd', self)
+
+    helpers :compat_parameters
+
+    DEFAULT_BUFFER_TYPE = "memory"
 
     config_param :host, :string, :default => nil
     config_param :port, :integer, :default => nil
@@ -11,6 +17,11 @@ module Fluent
     config_param :metric_type, :string, :default => nil
     config_param :value_key, :string, :default => nil
     config_param :sample_rate, :float, :default => nil
+
+    config_section :buffer do
+      config_set_default :@type, DEFAULT_BUFFER_TYPE
+      config_set_default :chunk_keys, ['tag']
+    end
 
     unless method_defined?(:log)
       define_method(:log) { $log }
@@ -24,6 +35,11 @@ module Fluent
       require 'statsd' # dogstatsd-ruby
     end
 
+    def configure(conf)
+      compat_parameters_convert(conf, :buffer)
+      super
+    end
+
     def start
       super
 
@@ -35,6 +51,10 @@ module Fluent
 
     def format(tag, time, record)
       [tag, time, record].to_msgpack
+    end
+
+    def formatted_to_msgpack_binary
+      true
     end
 
     def write(chunk)

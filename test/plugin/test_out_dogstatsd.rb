@@ -41,16 +41,17 @@ class DogstatsdOutputTest < Test::Unit::TestCase
   def test_write
     d = create_driver
 
-    d.emit({'type' => 'increment', 'key' => 'hello.world1'}, Time.now.to_i)
-    d.emit({'type' => 'increment', 'key' => 'hello.world2'}, Time.now.to_i)
-    d.emit({'type' => 'decrement', 'key' => 'hello.world'}, Time.now.to_i)
-    d.emit({'type' => 'count', 'value' => 10, 'key' => 'hello.world'}, Time.now.to_i)
-    d.emit({'type' => 'gauge', 'value' => 10, 'key' => 'hello.world'}, Time.now.to_i)
-    d.emit({'type' => 'histogram', 'value' => 10, 'key' => 'hello.world'}, Time.now.to_i)
-    d.emit({'type' => 'timing', 'value' => 10, 'key' => 'hello.world'}, Time.now.to_i)
-    d.emit({'type' => 'set', 'value' => 10, 'key' => 'hello.world'}, Time.now.to_i)
-    d.emit({'type' => 'event', 'title' => 'Deploy', 'text' => 'Revision', 'key' => 'hello.world'}, Time.now.to_i)
-    d.run
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'type' => 'increment', 'key' => 'hello.world1'})
+      d.feed(event_time, {'type' => 'increment', 'key' => 'hello.world2'})
+      d.feed(event_time, {'type' => 'decrement', 'key' => 'hello.world'})
+      d.feed(event_time, {'type' => 'count', 'value' => 10, 'key' => 'hello.world'})
+      d.feed(event_time, {'type' => 'gauge', 'value' => 10, 'key' => 'hello.world'})
+      d.feed(event_time, {'type' => 'histogram', 'value' => 10, 'key' => 'hello.world'})
+      d.feed(event_time, {'type' => 'timing', 'value' => 10, 'key' => 'hello.world'})
+      d.feed(event_time, {'type' => 'set', 'value' => 10, 'key' => 'hello.world'})
+      d.feed(event_time, {'type' => 'event', 'title' => 'Deploy', 'text' => 'Revision', 'key' => 'hello.world'})
+    end
 
     assert_equal(d.instance.statsd.messages, [
       [:increment, 'hello.world1', {}],
@@ -61,7 +62,7 @@ class DogstatsdOutputTest < Test::Unit::TestCase
       [:histogram, 'hello.world', 10, {}],
       [:timing, 'hello.world', 10, {}],
       [:set, 'hello.world', 10, {}],
-      [:event, 'Deploy', 'Revision', {}],
+      [:event, 'Deploy', 'Revision', {:alert_type=>nil}],
     ])
   end
 
@@ -71,8 +72,9 @@ class DogstatsdOutputTest < Test::Unit::TestCase
 flat_tag true
     EOC
 
-    d.emit({'type' => 'increment', 'key' => 'hello.world', 'tagKey' => 'tagValue'}, Time.now.to_i)
-    d.run
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'type' => 'increment', 'key' => 'hello.world', 'tagKey' => 'tagValue'})
+    end
 
     assert_equal(d.instance.statsd.messages, [
       [:increment, 'hello.world', {tags: ["tagKey:tagValue"]}],
@@ -85,8 +87,9 @@ flat_tag true
 metric_type decrement
     EOC
 
-    d.emit({'key' => 'hello.world', 'tags' => {'tagKey' => 'tagValue'}}, Time.now.to_i)
-    d.run
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'key' => 'hello.world', 'tags' => {'tagKey' => 'tagValue'}})
+    end
 
     assert_equal(d.instance.statsd.messages, [
       [:decrement, 'hello.world', {tags: ["tagKey:tagValue"]}],
@@ -99,8 +102,9 @@ metric_type decrement
 use_tag_as_key true
     EOC
 
-    d.emit({'type' => 'increment'}, Time.now.to_i)
-    d.run
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'type' => 'increment'})
+    end
 
     assert_equal(d.instance.statsd.messages, [
       [:increment, 'dogstatsd.tag', {}],
@@ -113,8 +117,9 @@ use_tag_as_key true
 use_tag_as_key_if_missing true
     EOC
 
-    d.emit({'type' => 'increment'}, Time.now.to_i)
-    d.run
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'type' => 'increment'})
+    end
 
     assert_equal(d.instance.statsd.messages, [
       [:increment, 'dogstatsd.tag', {}],
@@ -123,8 +128,9 @@ use_tag_as_key_if_missing true
 
   def test_tags
     d = create_driver
-    d.emit({'type' => 'increment', 'key' => 'hello.world', 'tags' => {'key' => 'value'}}, Time.now.to_i)
-    d.run
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'type' => 'increment', 'key' => 'hello.world', 'tags' => {'key' => 'value'}})
+    end
 
     assert_equal(d.instance.statsd.messages, [
       [:increment, 'hello.world', {tags: ["key:value"]}],
@@ -137,9 +143,9 @@ use_tag_as_key_if_missing true
 sample_rate .5
     EOC
 
-    d.emit({'type' => 'increment', 'key' => 'tag'}, Time.now.to_i)
-    d.run
-
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'type' => 'increment', 'key' => 'tag'})
+    end
     assert_equal(d.instance.statsd.messages, [
       [:increment, 'tag', {sample_rate: 0.5}],
     ])
@@ -147,8 +153,9 @@ sample_rate .5
 
   def test_sample_rate
     d = create_driver
-    d.emit({'type' => 'increment', 'sample_rate' => 0.5, 'key' => 'tag'}, Time.now.to_i)
-    d.run
+    d.run(default_tag: 'dogstatsd.tag') do
+      d.feed(event_time, {'type' => 'increment', 'sample_rate' => 0.5, 'key' => 'tag'})
+    end
 
     assert_equal(d.instance.statsd.messages, [
       [:increment, 'tag', {sample_rate: 0.5}],
@@ -163,9 +170,8 @@ sample_rate .5
   end
 
   def create_driver(conf = default_config)
-    Fluent::Test::BufferedOutputTestDriver.new(Fluent::DogstatsdOutput, 'dogstatsd.tag').configure(conf).tap do |d|
+    Fluent::Test::Driver::Output.new(Fluent::Plugin::DogstatsdOutput).configure(conf).tap do |d|
       d.instance.statsd = DummyStatsd.new
     end
   end
 end
-
