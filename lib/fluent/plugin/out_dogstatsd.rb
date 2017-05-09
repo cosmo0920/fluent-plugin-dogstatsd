@@ -38,6 +38,7 @@ module Fluent::Plugin
     def configure(conf)
       compat_parameters_convert(conf, :buffer)
       super
+      raise Fluent::ConfigError, "'tag' in chunk_keys is required." if not @chunk_key_tag
     end
 
     def start
@@ -50,7 +51,7 @@ module Fluent::Plugin
     end
 
     def format(tag, time, record)
-      [tag, time, record].to_msgpack
+      [time, record].to_msgpack
     end
 
     def formatted_to_msgpack_binary
@@ -58,8 +59,9 @@ module Fluent::Plugin
     end
 
     def write(chunk)
+      tag = chunk.metadata.tag
       @statsd.batch do |s|
-        chunk.msgpack_each do |tag, time, record|
+        chunk.msgpack_each do |time, record|
           key = if @use_tag_as_key
                   tag
                 else

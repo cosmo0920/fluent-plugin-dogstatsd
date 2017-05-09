@@ -38,6 +38,21 @@ class DogstatsdOutputTest < Test::Unit::TestCase
     assert_equal(12345, d.instance.port)
   end
 
+  test 'lack of tag in chunk_keys' do
+    assert_raise_message(/'tag' in chunk_keys is required./) do
+      create_driver(Fluent::Config::Element.new(
+                      'ROOT', '', {
+                        '@type' => 'dogstatsd',
+                        'host' => 'HOST',
+                        'port' => 12345,
+                      }, [
+                        Fluent::Config::Element.new('buffer', 'mykey', {
+                                                      'chunk_keys' => 'mykey'
+                                                    }, [])
+                      ]))
+    end
+  end
+
   def test_write
     d = create_driver
 
