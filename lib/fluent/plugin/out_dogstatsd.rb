@@ -30,10 +30,6 @@ module Fluent::Plugin
 
     attr_accessor :statsd
 
-    def initialize
-      super
-    end
-
     def configure(conf)
       compat_parameters_convert(conf, :buffer)
       super
