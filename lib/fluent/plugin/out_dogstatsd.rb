@@ -24,10 +24,6 @@ module Fluent::Plugin
       config_set_default :chunk_keys, ['tag']
     end
 
-    unless method_defined?(:log)
-      define_method(:log) { $log }
-    end
-
     attr_accessor :statsd
 
     def configure(conf)
